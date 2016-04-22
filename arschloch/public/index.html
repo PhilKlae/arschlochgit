@@ -1,0 +1,352 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <!--Import Google Icon Font-->
+    <link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!--Import materialize.css-->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.3/css/materialize.min.css">
+
+    <!--Let browser know website is optimized for mobile-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+
+<body>
+<!--Import jQuery before materialize.js-->
+<script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.3/js/materialize.min.js"></script>
+<div class="container">
+    <!-- Page Content goes here -->
+    <!-- Page Content goes here -->
+
+    <div class="row" id="players">
+
+    </div>
+
+    <div class="row" id="lastplayed">
+
+    </div>
+    <div class="row" id="myDIV">
+
+    </div>
+    <div class="row" id="timerow">
+        <div class="progress">
+            <div class="determinate" id="timebar" style="width: 100%"></div>
+        </div>
+    </div>
+    <div class="row">
+
+    <button class="btn waves-effect waves-light" onclick="laycards()"  >legen</button>
+
+    </div>
+    <div class="row">
+    <div class="col s2">
+        <button class="btn waves-effect waves-light" onclick="pass()"  >passen</button>
+    </div>
+    </div>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    var socket = io();
+
+</script>
+<script>
+
+    //my js node server returns a String to represent 2 integers
+    //the first is lastcard_type which declares the "strength" of the card in Arschloch
+    //because the strength is equal to the Hierachy in a card game theese will be numbers from 2 to 13
+    // the second value passed is lastcard_count which influences gameplay
+
+    var cardnames = ["2","3","4","5","6","7","8","9","10","B","D","K","A"];
+    var lastcard= "0,0";
+    var cards = new Array(0,0,0,0,0,0,0,0,0,0,0,0,0);
+    var selectedcards="";
+    var currentplayer="";
+    var playernumber="";
+    var cardcount=1;
+    var gamerunning;
+    var roundrunning;
+    var won=false;
+    var clientlist=[];
+    var roundclientlist=[];
+    var countdowntime=10;
+    var interval;
+
+    socket.on('takecards', function(playercards){
+        cards=playercards;
+        for(k=0;k<cards.length;k++) { if(cards[k]!=0)   {cardcount++         }      }
+        won=false;
+        updateCards();
+
+    });
+
+    socket.on('listclient', function (clients) {
+        clientlist = clients;
+        updatePlayers();
+    });
+
+    socket.on('ingameclients', function (roundplayers) {
+        roundclientlist=roundplayers;
+        updatePlayers()
+    });
+
+    socket.on('roundstatus', function(roundstarted){
+        roundrunning=roundstarted;
+  /*      if(roundstarted==true){
+            won=false;
+        }*/
+    });
+
+    socket.on('gamestarted', function(gamestarted){
+        gamerunning=gamestarted;
+    });
+
+    socket.on('layedcards', function(cards){
+
+       lastcard=cards;
+        updateCards();
+    });
+
+    socket.on('playernumber', function(number){
+      //  if(playernumber==""){
+
+            playernumber=number;
+        lastcard="0,0";
+
+        //}
+    });
+
+    socket.on('nextplayer', function(player){
+
+
+            currentplayer=player;
+            updatePlayers();
+            if(currentplayer==playernumber){
+                countdowm();
+            }
+
+
+    });
+
+
+
+
+
+
+
+
+    function laycards()   {
+
+
+
+        if(selectedcards != ""){
+            var lastcardtype;
+            lastcardtype = parseInt(lastcard.split(",")[0]);
+            var lastcardcount= parseInt(lastcard.split(",")[1]);
+            var selectedtype=parseInt(selectedcards.split(",")[0]);
+            var selectedcount=parseInt(selectedcards.split(",")[1]);
+
+            if((((selectedtype>lastcardtype)&&(selectedcount==lastcardcount))||((lastcardcount==1)&&(selectedcount==4)))||(lastcard=="0,0")){
+
+
+
+                    if(currentplayer==playernumber) {
+                        socket.emit('laycards', selectedcards);
+                        cards[selectedtype]-=selectedcount;
+                        clearInterval(interval);
+                        countdowntime=10;
+                        resetbar();
+                   }
+
+
+                updateCards();
+                selectedcards="";
+
+            }
+        }
+
+
+    }
+    function selectcards() {
+            selectedcards=event.target.name;
+
+
+    }
+
+
+    function updateCards(){
+        cardcount=0;
+        for(k=0;k<cards.length;k++) { cardcount+=cards[k]       }
+
+
+        //check ob spieler gewonnen hat
+        if(cardcount<=0&&roundrunning==true&&won==false){
+            socket.emit('playerwon', playernumber);
+            won==true;
+        }
+
+
+        var lastcardtype;
+        lastcardtype = parseInt(lastcard.split(",")[0]);
+        var lastcardcount= parseInt(lastcard.split(",")[1]);
+
+      /*  var test=document.getElementById("myDIV").childNodes;
+        for( i=0;i<=test.length;i++){
+
+            document.getElementById("myDIV").removeChild(test[i]);
+
+        }*/
+        var myNode = document.getElementById("myDIV");
+        while (myNode.firstChild) {
+            myNode.removeChild(myNode.firstChild);
+        }
+        var myNode2 = document.getElementById("lastplayed");
+        while (myNode2.firstChild) {
+            myNode2.removeChild(myNode2.firstChild);
+        }
+
+
+        for(i =0;i<lastcardcount;i++){
+            var ss = document.createElement("BUTTON");
+            var s = document.createTextNode(cardnames[lastcardtype]);
+
+            ss.appendChild(s);
+            ss.setAttribute("class","btn waves-effect waves-light");
+            ss.setAttribute("name","" + lastcardtype + "," + (lastcardcount+1));
+
+
+
+            document.getElementById("lastplayed").appendChild(ss);
+
+        }
+
+
+        for(i=0;i< cards.length;i++){
+            if(cards[i]>0){
+                for(count=0;count<cards[i];count++){
+
+                    var para = document.createElement("BUTTON");
+                   var t = document.createTextNode(cardnames[i]);
+
+                    para.appendChild(t);
+                    para.setAttribute("class","btn waves-effect waves-light");
+                    para.setAttribute("name","" + i + "," + (count+1));
+                    para.setAttribute("onclick","selectcards()");
+
+                    document.getElementById("myDIV").appendChild(para);
+
+                }
+            }
+        }
+
+
+    }
+    function pass(){
+
+
+
+        if(currentplayer==playernumber) {
+            socket.emit('pass');
+            clearInterval(interval);
+            countdowntime=10;
+            resetbar();
+        }
+
+
+
+    }
+
+    function resetbar(){
+        var myNode = document.getElementById("timebar");
+        myNode.setAttribute("style","width: 100%" );
+
+    }
+
+    function shrink(){
+       /* var myNode = document.getElementById("time");
+        while (myNode.firstChild) {
+            myNode.removeChild(myNode.firstChild);
+        }*/
+       /* var ss = document.createElement();
+        ss.setAttribute("class","determinate");
+        ss.setAttribute("style","width: 70%"); //1000/(countdowntime*10));
+        document.getElementById("time").appendChild(ss);*/
+        var myNode = document.getElementById("timebar");
+        myNode.setAttribute("style","width: "+ (countdowntime*10) + "%" );
+    countdowntime--;
+        if (countdowntime == 0) {
+            pass();
+            clearInterval(interval);
+            myNode.setAttribute("style","width: 100%" );
+            countdowntime = 10;
+        }
+    }
+
+    function countdowm() {
+        // shrink();
+        if (roundrunning == true) {
+
+
+            interval = setInterval(shrink, 1000);
+
+            }
+    }
+
+    function updatePlayers(){
+        var myNode = document.getElementById("players");
+        while (myNode.firstChild) {
+            myNode.removeChild(myNode.firstChild);
+        }
+
+        for(i =0;i<clientlist.length;i++){
+            var ss = document.createElement("BUTTON");
+            var s = document.createTextNode(i);
+            ss.appendChild(s);
+
+            switch (c=clientlist[i]){
+                case playernumber:
+                    ss.setAttribute("class","btn waves-effect waves-light green");
+                    break;
+
+                case currentplayer:
+                    ss.setAttribute("class","btn waves-effect waves-light red");
+                    break;
+
+
+
+                default:
+                    ss.setAttribute("class","btn waves-effect waves-light ");
+            }
+
+            if(roundclientlist.indexOf(c)==-1){
+                ss.setAttribute("class","btn waves-effect waves-light grey");
+            }
+
+
+        /*    if(clientlist[i]==playernumber){
+                ss.setAttribute("class","btn waves-effect waves-light green");
+            }
+            if(clientlist[i]==currentplayer){
+                ss.setAttribute("class","btn waves-effect waves-light red");
+            }*/
+
+            ss.setAttribute("name","" + i);
+
+
+
+            document.getElementById("players").appendChild(ss);
+
+        }
+
+    }
+    updateCards();
+
+
+
+</script>
+
+
+
+
+</body>
+</html>
